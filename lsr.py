@@ -23,7 +23,7 @@ def getlinesegments(xs, ys):
     return segmentedxs, segmentedys, segments
 
 
-def view_data_segments(xs, ys):
+def view_data_segments(xs, ys, alist, blist, segments):
     """Visualises the input file with each segment plotted in a different colour.
     Args:
         xs : List/array-like of x co-ordinates.
@@ -31,26 +31,45 @@ def view_data_segments(xs, ys):
     Returns:
         None
     """
-    assert len(xs) == len(ys)
-    assert len(xs) % 20 == 0
-    len_data = len(xs)
-    num_segments = len_data // 20
-    colour = np.concatenate([[i] * 20 for i in range(num_segments)])
+    fig, ax = plt.subplots()
+    colour = np.concatenate([[i] * 20 for i in range(segments)])
     plt.set_cmap('Dark2')
-    plt.scatter(xs, ys, c=colour)
+    ax.scatter(xs, ys, c=colour)
+    for i in range(segments):
+        #Case for last segment (to avoid going out of bounds)
+        if (i==segments-1):
+            x = np.linspace(xs[20*i], xs[20*(i+1)-1], 100)
+        else:
+            x = np.linspace(xs[20*i], xs[20*(i+1)], 100)
+        ax.plot(x, (alist[i] + blist[i]*x), linestyle='solid')
     plt.show()
+
+
+def polynomiallsr(xs, ys, p):
+    columns = [np.ones(20)]
+    for (i in range(1,p)): #can be put inside a list thingy
+        columns.append(list(map(lambda x: x**i, xs)))
+    XT = np.matrix(columns)
+    print(XT)
+
 
 def calculatelsr(xs, ys):
     #do calculations
     XT = np.matrix([np.ones(20),xs])
     X = XT.getT()
     Y = np.matrix(ys).getT()
-    print(XT)
-    print(X)
     A = ((XT * X).getI() * XT) * Y
-    print(A)
+    a = A[0,0]
+    b = A[1,0]
+    sserror = 0 #Sum squared error
+    for i in range(20):
+        yp = a + (b * xs[i])
+        errori = (yp - ys[i])
+        sserror += errori ** 2
+    return a, b, sserror
 
 def main(argv):
+    totalerror = 0
     if (len(argv) > 3 or len(argv)==1 ):
         print("Error. Incorrect format.")
         exit()
@@ -65,17 +84,22 @@ def main(argv):
     xs, ys = load_points_from_file(filename)
     segmentedxs, segmentedys, segments = getlinesegments(xs, ys)
 
+    alist = []
+    blist = []
     #Send xs, ys to calculatelsr()
     for i in range(segments):
-        calculatelsr(segmentedxs[i], segmentedys[i])
-
+        a, b, sserror = calculatelsr(segmentedxs[i], segmentedys[i])
+        alist.append(a)
+        blist.append(b)
+        totalerror += sserror
+    print(totalerror)
     if (len(argv) == 3 and argv[2]=="--plot"):
-        print("Plot detected")
         #do plot stuff
-        view_data_segments(xs, ys)
-
-
+        view_data_segments(xs, ys, alist, blist, segments)
 
 
 if __name__ == "__main__":
     main(sys.argv)
+
+
+#Notes: Does noise mean outliers?
