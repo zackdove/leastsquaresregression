@@ -23,7 +23,7 @@ def getlinesegments(xs, ys):
     return segmentedxs, segmentedys, segments
 
 
-def view_data_segments(xs, ys, alist, blist, segments):
+def view_data_segments(xs, ys, clist, segments):
     """Visualises the input file with each segment plotted in a different colour.
     Args:
         xs : List/array-like of x co-ordinates.
@@ -36,55 +36,53 @@ def view_data_segments(xs, ys, alist, blist, segments):
     plt.set_cmap('Dark2')
     ax.scatter(xs, ys, c=colour)
     for i in range(segments):
+        coefficients = clist[i]
         #Case for last segment (to avoid going out of bounds)
         if (i==segments-1):
             x = np.linspace(xs[20*i], xs[20*(i+1)-1], 100)
         else:
             x = np.linspace(xs[20*i], xs[20*(i+1)], 100)
-        ax.plot(x, (alist[i] + blist[i]*x), linestyle='solid')
+
+        y = 0 * x
+        for c in coefficients:
+            y += c * (x ** coefficients.index(c))
+        ax.plot(x, y, linestyle='solid')
     plt.show()
 
 
 #Calculate the least squares regression for polynomail of degree p+1
-def lsrForDegreeP(xs, ys, d):
+def lsrForDegreeD(xs, ys, d):
     columns = []
     for i in range(0,d+1): #can be put inside a list thingy
         columns.append(list(map(lambda x: x**i, xs)))
     XT = np.matrix(columns)
     X = XT.getT()
-    print(X)
     Y = np.matrix(ys).getT()
     A = ((XT * X).getI() * XT) * Y
-    a = A[0,0]
-    b = A[1,0]
-    print(A) #!!!!!!
-    coefficients = A.tolist()
-    print(coefficients)
+    #https://stackoverflow.com/a/952952
+    coefficients = [item for sublist in A.tolist() for item in sublist]
     sserror = 0 #Sum squared error
     for i in range(20):
-        yp = a + (b * (xs[i]**d))
+        yp = 0
+        for degree in range(0, d+1):
+            yp += coefficients[degree] * (xs[i] ** degree)
         errori = (yp - ys[i])
         sserror += errori ** 2
-    return a, b, sserror
+    return coefficients, sserror
 
 #Try many degree polynomials, use one with least error
 def findLsrForBestPolynomial(xs, ys):
     maxdegree = 10
-    alist = []
-    blist = []
+    clist = []
     errorlist = []
     for degree in range(1, maxdegree+1):
-        a, b, error = lsrForDegreeP(xs, ys, degree)
-        alist.append(a)
-        blist.append(b)
+        coefficients, error = lsrForDegreeD(xs, ys, degree)
+        clist.append(coefficients)
         errorlist.append(error)
-    #print(errorlist)
     minerror = min(errorlist)
     index = errorlist.index(minerror)
-    #bestdegree = errorlist.index(minerror) + 1
-    besta = alist[index]
-    bestb = blist[index]
-    return besta, bestb, minerror
+    bestcoefficients = clist[index]
+    return bestcoefficients, minerror
 
 
 def linearlsr(xs, ys):
@@ -117,24 +115,16 @@ def main(argv):
     filename = argv[1]
     xs, ys = load_points_from_file(filename)
     segmentedxs, segmentedys, segments = getlinesegments(xs, ys)
-
-    alist = []
-    blist = []
-    #dlist = []
+    clist = []
     #Send xs, ys to calculatelsr()
     for i in range(segments):
-        a, b, sserror = lsrForDegreeP(segmentedxs[i], segmentedys[i], 2)
-        #a, b, sserror = linearlsr(segmentedxs[i], segmentedys[i])
-        #f, d, werror = findLsrForBestPolynomial(segmentedxs[i], segmentedys[i])
-        print(sserror)
-        alist.append(a)
-        blist.append(b)
-        #dlist.append(d)
+        coefficients, sserror = findLsrForBestPolynomial(segmentedxs[i], segmentedys[i])
+        clist.append(coefficients)
         totalerror += sserror
     print(totalerror)
     if (len(argv) == 3 and argv[2]=="--plot"):
         #do plot stuff
-        view_data_segments(xs, ys, alist, blist, segments)
+        view_data_segments(xs, ys, clist, segments)
 
 
 if __name__ == "__main__":
