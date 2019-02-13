@@ -45,15 +45,49 @@ def view_data_segments(xs, ys, alist, blist, segments):
     plt.show()
 
 
-def polynomiallsr(xs, ys, p):
-    columns = [np.ones(20)]
-    for (i in range(1,p)): #can be put inside a list thingy
+#Calculate the least squares regression for polynomail of degree p+1
+def lsrForDegreeP(xs, ys, d):
+    columns = []
+    for i in range(0,d+1): #can be put inside a list thingy
         columns.append(list(map(lambda x: x**i, xs)))
     XT = np.matrix(columns)
-    print(XT)
+    X = XT.getT()
+    print(X)
+    Y = np.matrix(ys).getT()
+    A = ((XT * X).getI() * XT) * Y
+    a = A[0,0]
+    b = A[1,0]
+    print(A) #!!!!!!
+    coefficients = A.tolist()
+    print(coefficients)
+    sserror = 0 #Sum squared error
+    for i in range(20):
+        yp = a + (b * (xs[i]**d))
+        errori = (yp - ys[i])
+        sserror += errori ** 2
+    return a, b, sserror
+
+#Try many degree polynomials, use one with least error
+def findLsrForBestPolynomial(xs, ys):
+    maxdegree = 10
+    alist = []
+    blist = []
+    errorlist = []
+    for degree in range(1, maxdegree+1):
+        a, b, error = lsrForDegreeP(xs, ys, degree)
+        alist.append(a)
+        blist.append(b)
+        errorlist.append(error)
+    #print(errorlist)
+    minerror = min(errorlist)
+    index = errorlist.index(minerror)
+    #bestdegree = errorlist.index(minerror) + 1
+    besta = alist[index]
+    bestb = blist[index]
+    return besta, bestb, minerror
 
 
-def calculatelsr(xs, ys):
+def linearlsr(xs, ys):
     #do calculations
     XT = np.matrix([np.ones(20),xs])
     X = XT.getT()
@@ -86,11 +120,16 @@ def main(argv):
 
     alist = []
     blist = []
+    #dlist = []
     #Send xs, ys to calculatelsr()
     for i in range(segments):
-        a, b, sserror = calculatelsr(segmentedxs[i], segmentedys[i])
+        a, b, sserror = lsrForDegreeP(segmentedxs[i], segmentedys[i], 2)
+        #a, b, sserror = linearlsr(segmentedxs[i], segmentedys[i])
+        #f, d, werror = findLsrForBestPolynomial(segmentedxs[i], segmentedys[i])
+        print(sserror)
         alist.append(a)
         blist.append(b)
+        #dlist.append(d)
         totalerror += sserror
     print(totalerror)
     if (len(argv) == 3 and argv[2]=="--plot"):
